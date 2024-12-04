@@ -43383,10 +43383,23 @@ function _defineProperties(e, r) { for (var t = 0; t < r.length; t++) { var o = 
 function _createClass(e, r, t) { return r && _defineProperties(e.prototype, r), t && _defineProperties(e, t), Object.defineProperty(e, "prototype", { writable: !1 }), e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+var boxWidth = 4;
+var boxHeight = 1;
+var boxDepth = 1;
+var maxSegments = 80; // 80
+
+var minPointSize = 0.5;
+var maxPointSize = 3;
+var cameraDistanceMin = 2;
+var cameraDistanceMax = 30;
+var cameraDistanceDefault = 4;
+var green = 0x272e29;
+var yellow = 0xfffcb6;
 var App = exports.default = /*#__PURE__*/function () {
   function App() {
     var _this = this;
     _classCallCheck(this, App);
+    this.offSet = 60;
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true
@@ -43396,7 +43409,7 @@ var App = exports.default = /*#__PURE__*/function () {
     this.renderer.autoClear = false;
     document.body.appendChild(this.renderer.domElement);
     this.camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 10000);
-    this.camera.position.z = 4;
+    this.camera.position.z = cameraDistanceDefault;
     this.camera.frustumCulled = false;
     this.scene = new THREE.Scene();
     this.scene.add(this.camera);
@@ -43404,7 +43417,7 @@ var App = exports.default = /*#__PURE__*/function () {
     this.holder.sortObjects = false;
     this.scene.add(this.holder);
 
-    // Web Audio API Setup
+    //* Web Audio API
     this.audioContext, this.analyser, this.dataArray;
     navigator.mediaDevices.getUserMedia({
       audio: true,
@@ -43420,7 +43433,6 @@ var App = exports.default = /*#__PURE__*/function () {
     }).catch(function (err) {
       console.error("Error accessing microphone:", err);
     });
-    this.gui = new _lilGui.default();
     this.time = 0;
     var uniforms = {
       time: {
@@ -43430,7 +43442,7 @@ var App = exports.default = /*#__PURE__*/function () {
         value: 2
       },
       size: {
-        value: 2
+        value: Math.floor(THREE.MathUtils.randInt(minPointSize, maxPointSize))
       },
       // Size of the points
       frequency: {
@@ -43453,8 +43465,6 @@ var App = exports.default = /*#__PURE__*/function () {
         value: new THREE.Color(0xfffcb6)
       }
     };
-    var green = 0x272e29;
-    var yellow = 0xfffcb6;
     this.material = new THREE.ShaderMaterial({
       side: THREE.DoubleSide,
       vertexShader: _vertex.default,
@@ -43462,11 +43472,7 @@ var App = exports.default = /*#__PURE__*/function () {
       transparent: true,
       uniforms: uniforms
     });
-    setInterval(function () {
-      if (_this.guiProperties.autoRandom) {
-        _this.guiProperties.randomizeMeshes();
-      }
-    }, 1000);
+    this.gui = new _lilGui.default();
     this.setGUI();
     this.createCube();
     this.update();
@@ -43480,10 +43486,10 @@ var App = exports.default = /*#__PURE__*/function () {
     value: function createCube() {
       var _this$segmentsFolder,
         _this2 = this;
-      var widthSeg = Math.floor(THREE.MathUtils.randInt(5, 80));
-      var heightSeg = Math.floor(THREE.MathUtils.randInt(1, 80));
-      var depthSeg = Math.floor(THREE.MathUtils.randInt(5, 80));
-      this.geometry = new THREE.BoxGeometry(4, 1, 1, widthSeg, heightSeg, depthSeg);
+      var widthSeg = Math.floor(THREE.MathUtils.randInt(1, maxSegments));
+      var heightSeg = Math.floor(THREE.MathUtils.randInt(1, maxSegments));
+      var depthSeg = Math.floor(THREE.MathUtils.randInt(1, maxSegments));
+      this.geometry = new THREE.BoxGeometry(boxWidth, boxHeight, boxDepth, widthSeg, heightSeg, depthSeg);
       this.pointsMesh = new THREE.Points(this.geometry, this.material);
       this.holder.add(this.pointsMesh);
       (_this$segmentsFolder = this.segmentsFolder) === null || _this$segmentsFolder === void 0 || _this$segmentsFolder.destroy();
@@ -43491,17 +43497,22 @@ var App = exports.default = /*#__PURE__*/function () {
       this.guiProperties.segments = {
         width: widthSeg,
         height: heightSeg,
-        depth: depthSeg
+        depth: depthSeg,
+        offset: 80,
+        camera: cameraDistanceDefault
       };
-      this.segmentsFolder.add(this.guiProperties.segments, "width", 5, 80);
-      this.segmentsFolder.add(this.guiProperties.segments, "height", 1, 80);
-      this.segmentsFolder.add(this.guiProperties.segments, "depth", 5, 80);
+      this.segmentsFolder.add(this.guiProperties.segments, "width", 1, maxSegments);
+      this.segmentsFolder.add(this.guiProperties.segments, "height", 1, maxSegments);
+      this.segmentsFolder.add(this.guiProperties.segments, "depth", 1, maxSegments);
+      this.segmentsFolder.add(this.guiProperties.segments, "offset", 0, 100);
+      this.segmentsFolder.add(this.guiProperties.segments, "camera", cameraDistanceMin, cameraDistanceMax);
       this.segmentsFolder.add(this.guiProperties, "randomizeSegments").name("Randomize Segments");
       this.segmentsFolder.onChange(function () {
         _this2.holder.remove(_this2.pointsMesh);
-        _this2.geometry = new THREE.BoxGeometry(1, 1, 1, _this2.guiProperties.segments.width, _this2.guiProperties.segments.height, _this2.guiProperties.segments.depth);
+        _this2.geometry = new THREE.BoxGeometry(boxWidth, boxHeight, boxDepth, _this2.guiProperties.segments.width, _this2.guiProperties.segments.height, _this2.guiProperties.segments.depth);
         _this2.pointsMesh = new THREE.Points(_this2.geometry, _this2.material);
         _this2.holder.add(_this2.pointsMesh);
+        _this2.camera.position.z = _this2.guiProperties.segments.camera;
       });
     }
   }, {
@@ -43516,38 +43527,20 @@ var App = exports.default = /*#__PURE__*/function () {
       this.guiProperties = {
         segments: {},
         mesh: "Cube",
-        autoRotate: false,
-        autoRandom: false,
+        Rotate: false,
         randomizeSegments: function randomizeSegments() {
           _this3.holder.remove(_this3.pointsMesh);
           _this3.createCube();
-        },
-        randomizeMeshes: function randomizeMeshes() {
-          _this3.holder.remove(_this3.pointsMesh);
-          if (Math.random() < 0.5) {
-            _this3.guiProperties.mesh = "Cube";
-            _this3.createCube();
-          } else {
-            _this3.guiProperties.mesh = "Cylinder";
-            _this3.createCylinder();
-          }
         }
       };
-      this.gui.add(this.guiProperties, "mesh", ["Cube", "Cylinder"]).onChange(function (value) {
-        _this3.holder.remove(_this3.pointsMesh);
-        if (value === "Cube") {
-          _this3.createCube();
-        } else {
-          _this3.createCylinder();
-        }
-      }).listen();
-      this.gui.add(this.guiProperties, "autoRotate").name("Auto Rotate");
-      this.gui.add(this.guiProperties, "autoRandom").name("Auto Randomize");
-      this.gui.add(this.guiProperties, "randomizeMeshes").name("Randomize Meshes");
+
+      //* GUI
+      this.gui.add(this.guiProperties, "Rotate").name("Rotate");
       this.shaderFolder = this.gui.addFolder("Shader");
       this.shaderFolder.add(this.material.uniforms.frequency, "value", 0, 5).name("Frequency");
       this.shaderFolder.add(this.material.uniforms.amplitude, "value", 0, 5).name("Amplitude");
-      this.gui.close();
+      this.shaderFolder.add(this.material.uniforms.size, "value", minPointSize, maxPointSize).name("Point size");
+      // this.gui.close();
     }
   }, {
     key: "resize",
@@ -43577,10 +43570,17 @@ var App = exports.default = /*#__PURE__*/function () {
         var avgFrequency = this.dataArray.reduce(function (a, b) {
           return a + b;
         }, 0) / this.dataArray.length;
-        this.material.uniforms.amplitude.value = Math.max(0.8, avgFrequency / 80);
-        this.material.uniforms.offsetGain.value = avgFrequency / 30;
+        var bass = this.dataArray.slice(0, 10).reduce(function (a, b) {
+          return a + b;
+        }) / 10; // Bass frequencies
+
+        // Example: Use high frequencies to control rotation
+        // const treble = his.dataArray.slice(200, 256).reduce((a, b) => a + b) / 56; // Treble frequencies
+
+        this.material.uniforms.amplitude.value = Math.max(0.8, avgFrequency / 100);
+        this.material.uniforms.offsetGain.value = bass / this.guiProperties.segments.offset;
       }
-      if (this.guiProperties.autoRotate) {
+      if (this.guiProperties.Rotate) {
         this.holder.rotation.x += 0.01;
         this.holder.rotation.y += 0.01;
       } else {
