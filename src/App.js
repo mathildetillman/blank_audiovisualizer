@@ -3,8 +3,25 @@ import GUI from "lil-gui";
 import vertex from "./glsl/vertex.glsl";
 import fragment from "./glsl/fragment.glsl";
 
+const boxWidth = 4;
+const boxHeight = 1;
+const boxDepth = 1;
+
+const maxSegments = 80; // 80
+
+const minPointSize = 0.5;
+const maxPointSize = 3;
+
+const cameraDistanceMin = 0;
+const cameraDistanceMax = 30;
+const cameraDistanceDefault = 4;
+
+const green = 0x272e29;
+const yellow = 0xfffcb6;
+
 export default class App {
   constructor() {
+    this.offSet = 60;
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true,
@@ -20,7 +37,7 @@ export default class App {
       0.1,
       10000
     );
-    this.camera.position.z = 4;
+    this.camera.position.z = cameraDistanceDefault;
     this.camera.frustumCulled = false;
 
     this.scene = new THREE.Scene();
@@ -30,7 +47,7 @@ export default class App {
     this.holder.sortObjects = false;
     this.scene.add(this.holder);
 
-    // Web Audio API Setup
+    //* Web Audio API
     this.audioContext, this.analyser, this.dataArray;
 
     navigator.mediaDevices
@@ -51,13 +68,12 @@ export default class App {
         console.error("Error accessing microphone:", err);
       });
 
-    this.gui = new GUI();
     this.time = 0;
 
     const uniforms = {
       time: { value: 0 },
       offsetSize: { value: 2 },
-      size: { value: 2 }, // Size of the points
+      size: { value: Math.floor(THREE.MathUtils.randInt(minPointSize, maxPointSize)) }, // Size of the points
       frequency: { value: 0.5 },
       amplitude: { value: 0.8 },
       offsetGain: { value: 0 }, // Up and down -  default 1
@@ -66,8 +82,7 @@ export default class App {
       endColor: { value: new THREE.Color(0xfffcb6) },
     };
 
-    const green = 0x272e29;
-    const yellow = 0xfffcb6;
+
 
     this.material = new THREE.ShaderMaterial({
       side: THREE.DoubleSide,
@@ -77,13 +92,10 @@ export default class App {
       uniforms,
     });
 
-    setInterval(() => {
-      if (this.guiProperties.autoRandom) {
-        this.guiProperties.randomizeMeshes();
-      }
-    }, 1000);
 
+    this.gui = new GUI();
     this.setGUI();
+    
     this.createCube();
 
     this.update();
@@ -93,14 +105,14 @@ export default class App {
   }
 
   createCube() {
-    let widthSeg = Math.floor(THREE.MathUtils.randInt(5, 80));
-    let heightSeg = Math.floor(THREE.MathUtils.randInt(1, 80));
-    let depthSeg = Math.floor(THREE.MathUtils.randInt(5, 80));
+    let widthSeg = Math.floor(THREE.MathUtils.randInt(1, maxSegments));
+    let heightSeg = Math.floor(THREE.MathUtils.randInt(1, maxSegments));
+    let depthSeg = Math.floor(THREE.MathUtils.randInt(1, maxSegments));
 
     this.geometry = new THREE.BoxGeometry(
-      4,
-      1,
-      1,
+      boxWidth,
+      boxHeight,
+      boxDepth,
       widthSeg,
       heightSeg,
       depthSeg
@@ -114,10 +126,29 @@ export default class App {
       width: widthSeg,
       height: heightSeg,
       depth: depthSeg,
+      offset: 80,
+      camera: cameraDistanceDefault
     };
-    this.segmentsFolder.add(this.guiProperties.segments, "width", 5, 80);
-    this.segmentsFolder.add(this.guiProperties.segments, "height", 1, 80);
-    this.segmentsFolder.add(this.guiProperties.segments, "depth", 5, 80);
+    this.segmentsFolder.add(
+      this.guiProperties.segments,
+      "width",
+      1,
+      maxSegments
+    );
+    this.segmentsFolder.add(
+      this.guiProperties.segments,
+      "height",
+      1,
+      maxSegments
+    );
+    this.segmentsFolder.add(
+      this.guiProperties.segments,
+      "depth",
+      1,
+      maxSegments
+    );
+    this.segmentsFolder.add(this.guiProperties.segments, "offset", 0, 100);
+    this.segmentsFolder.add(this.guiProperties.segments, "camera", cameraDistanceMin, cameraDistanceMax);
     this.segmentsFolder
       .add(this.guiProperties, "randomizeSegments")
       .name("Randomize Segments");
@@ -125,15 +156,16 @@ export default class App {
     this.segmentsFolder.onChange(() => {
       this.holder.remove(this.pointsMesh);
       this.geometry = new THREE.BoxGeometry(
-        1,
-        1,
-        1,
+        boxWidth,
+        boxHeight,
+        boxDepth,
         this.guiProperties.segments.width,
         this.guiProperties.segments.height,
         this.guiProperties.segments.depth
       );
       this.pointsMesh = new THREE.Points(this.geometry, this.material);
       this.holder.add(this.pointsMesh);
+      this.camera.position.z = this.guiProperties.segments.camera;
     });
   }
 
@@ -145,41 +177,15 @@ export default class App {
     this.guiProperties = {
       segments: {},
       mesh: "Cube",
-      autoRotate: false,
-      autoRandom: false,
+      Rotate: false,
       randomizeSegments: () => {
         this.holder.remove(this.pointsMesh);
         this.createCube();
       },
-      randomizeMeshes: () => {
-        this.holder.remove(this.pointsMesh);
-        if (Math.random() < 0.5) {
-          this.guiProperties.mesh = "Cube";
-          this.createCube();
-        } else {
-          this.guiProperties.mesh = "Cylinder";
-          this.createCylinder();
-        }
-      },
     };
 
-    this.gui
-      .add(this.guiProperties, "mesh", ["Cube", "Cylinder"])
-      .onChange((value) => {
-        this.holder.remove(this.pointsMesh);
-        if (value === "Cube") {
-          this.createCube();
-        } else {
-          this.createCylinder();
-        }
-      })
-      .listen();
-
-    this.gui.add(this.guiProperties, "autoRotate").name("Auto Rotate");
-    this.gui.add(this.guiProperties, "autoRandom").name("Auto Randomize");
-    this.gui
-      .add(this.guiProperties, "randomizeMeshes")
-      .name("Randomize Meshes");
+    //* GUI
+    this.gui.add(this.guiProperties, "Rotate").name("Rotate");
 
     this.shaderFolder = this.gui.addFolder("Shader");
     this.shaderFolder
@@ -188,7 +194,10 @@ export default class App {
     this.shaderFolder
       .add(this.material.uniforms.amplitude, "value", 0, 5)
       .name("Amplitude");
-    this.gui.close();
+    this.shaderFolder
+      .add(this.material.uniforms.size, "value", minPointSize, maxPointSize)
+      .name("Point size");
+    // this.gui.close();
   }
 
   resize() {
@@ -214,11 +223,23 @@ export default class App {
       const avgFrequency =
         this.dataArray.reduce((a, b) => a + b, 0) / this.dataArray.length;
 
-      this.material.uniforms.amplitude.value = Math.max(0.8, avgFrequency/80);
-      this.material.uniforms.offsetGain.value = avgFrequency/30;
+      const bass = this.dataArray.slice(0, 10).reduce((a, b) => a + b) / 10; // Bass frequencies
+
+      // Example: Use high frequencies to control rotation
+      const treble = this.dataArray.slice(80, 128).reduce((a, b) => a + b) ; // Treble frequencies
+
+      console.log(treble)
+
+      // this.material.uniforms.amplitude.value = Math.max(0.8, treble/2000);
+      this.material.uniforms.amplitude.value = Math.max(
+        0.8,
+        avgFrequency / 100
+      );
+      this.material.uniforms.offsetGain.value =
+        bass / this.guiProperties.segments.offset;
     }
 
-    if (this.guiProperties.autoRotate) {
+    if (this.guiProperties.Rotate) {
       this.holder.rotation.x += 0.01;
       this.holder.rotation.y += 0.01;
     } else {
