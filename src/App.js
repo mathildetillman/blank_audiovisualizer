@@ -12,7 +12,7 @@ const maxSegments = 80; // 80
 const minPointSize = 0.5;
 const maxPointSize = 3;
 
-const cameraDistanceMin = 2;
+const cameraDistanceMin = 0;
 const cameraDistanceMax = 30;
 const cameraDistanceDefault = 4;
 
@@ -226,9 +226,15 @@ export default class App {
       const bass = this.dataArray.slice(0, 10).reduce((a, b) => a + b) / 10; // Bass frequencies
 
       // Example: Use high frequencies to control rotation
-      // const treble = his.dataArray.slice(200, 256).reduce((a, b) => a + b) / 56; // Treble frequencies
+      const treble = this.dataArray.slice(80, 128).reduce((a, b) => a + b) ; // Treble frequencies
 
-      this.material.uniforms.amplitude.value = Math.max(0.8, avgFrequency / 100);
+      console.log(treble)
+
+      // this.material.uniforms.amplitude.value = Math.max(0.8, treble/2000);
+      this.material.uniforms.amplitude.value = Math.max(
+        0.8,
+        avgFrequency / 100
+      );
       this.material.uniforms.offsetGain.value =
         bass / this.guiProperties.segments.offset;
     }
